@@ -1,115 +1,841 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>R — Places remember more than we think.</title>
+<style>
+  :root{
+    --ink:#14110D;
+    --surface:#1C1712;
+    --surface-2:#241E17;
+    --surface-3:#2B241B;
+    --text:#F3ECE2;
+    --text-soft:#B9AC9C;
+    --text-faint:#7A6F62;
+    --line:rgba(243,236,226,0.08);
+    --line-strong:rgba(243,236,226,0.16);
+    --amber:#E7A64A;
+    --amber-deep:#C98A34;
+    --amber-ink:#241804;
+    --rose:#E2735C;
+    --shadow-sm:0 6px 18px -10px rgba(0,0,0,0.55);
+    --shadow-md:0 18px 40px -18px rgba(0,0,0,0.65);
+    --shadow-lg:0 34px 80px -24px rgba(0,0,0,0.75);
+    --r-lg:26px;
+    --r-md:18px;
+    --r-sm:12px;
+    --font-display: ui-serif, "New York", "Iowan Old Style", "Palatino Linotype", Georgia, "Times New Roman", serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+    color-scheme: dark;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:
+      radial-gradient(900px 500px at 50% -12%, rgba(231,166,74,0.10), transparent 60%),
+      var(--ink);
+    color:var(--text);
+    font-family:var(--font-body);
+    min-height:100vh;
+    min-height:100dvh;
+    overflow-x:hidden;
+  }
+  h1,h2,h3{ margin:0; text-wrap:balance; }
+  p{ margin:0; }
+  button{ font-family:inherit; }
+  ::selection{ background: rgba(231,166,74,0.28); }
 
-  <title>R — Places remember</title>
+  svg.ic{ width:20px; height:20px; stroke:currentColor; fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; display:block; }
 
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+  /* ============ Stage (desktop presentation) ============ */
+  .stage{
+    min-height:100vh; min-height:100dvh;
+    display:flex; align-items:center; justify-content:center;
+    padding:40px 16px;
+  }
 
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f3ee;
-      color: #171717;
-    }
+  .device{
+    width:400px; height:840px;
+    border-radius:46px;
+    padding:9px;
+    background: linear-gradient(165deg, #3a3226, #1b1712 55%, #0e0c09);
+    box-shadow: var(--shadow-lg), 0 0 0 1px rgba(231,166,74,0.06) inset;
+    flex:0 0 auto;
+  }
+  .screen-frame{
+    position:relative; width:100%; height:100%;
+    background:var(--ink);
+    border-radius:38px;
+    overflow:hidden;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.5) inset;
+  }
+  .notch{
+    position:absolute; top:12px; left:50%; transform:translateX(-50%);
+    width:96px; height:26px; background:#0a0806; border-radius:16px; z-index:80;
+  }
 
-    nav {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 30px 6%;
-    }
+  /* On small viewports: real full-bleed app, no device chrome */
+  @media (max-width:680px){
+    .stage{ padding:0; }
+    .device{ width:100vw; height:100vh; height:100dvh; border-radius:0; padding:0; box-shadow:none; background:none; }
+    .screen-frame{ border-radius:0; }
+    .notch{ display:none; }
+  }
 
-    .logo {
-      font-size: 42px;
-      font-weight: 800;
-    }
+  /* ============ App bars ============ */
+  .app{ position:absolute; inset:0; display:flex; flex-direction:column; }
+  .screens{ position:relative; flex:1; min-height:0; }
+  .screen{
+    position:absolute; inset:0;
+    display:flex; flex-direction:column;
+    opacity:0; pointer-events:none; transform:translateY(8px);
+    transition:opacity .25s ease, transform .25s ease;
+  }
+  .screen.active{ opacity:1; pointer-events:auto; transform:translateY(0); }
+  .scroll{ flex:1; overflow-y:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+  .scroll::-webkit-scrollbar{ display:none; }
+  .pad{ padding:52px 22px 110px; }
 
-    .nav-links {
-      display: flex;
-      gap: 30px;
-      font-size: 15px;
-    }
+  /* ============ Top bar ============ */
+  .topbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
+  .wordmark{ display:flex; align-items:center; gap:9px; }
+  .wordmark .r{
+    font-family:var(--font-display); font-weight:600; font-size:22px; color:var(--amber);
+    width:34px; height:34px; border-radius:11px; background:var(--surface); border:1px solid var(--line-strong);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .wordmark .loc{ font-size:12px; color:var(--text-faint); font-weight:600; letter-spacing:.02em; }
+  .wordmark .loc b{ color:var(--text-soft); font-weight:600; }
+  .icon-btn{
+    width:38px; height:38px; border-radius:50%; background:var(--surface); border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center; color:var(--text-soft); cursor:pointer;
+    transition:transform .15s ease, background .15s ease, color .15s ease;
+  }
+  .icon-btn:hover{ color:var(--text); background:var(--surface-2); }
+  .icon-btn:active{ transform:scale(.9); }
+  .icon-btn .dot{ position:absolute; }
 
-    .hero {
-      min-height: 75vh;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      text-align: center;
-      padding: 40px 20px;
-    }
+  /* ============ Hero ============ */
+  .hero-greet{ font-size:12.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--text-faint); }
+  .hero-line{ font-family:var(--font-display); font-size:27px; line-height:1.28; color:var(--text); margin-top:9px; max-width:290px; }
+  .hero-line em{ font-style:italic; color:var(--amber); }
 
-    .hero h1 {
-      font-size: clamp(50px, 8vw, 100px);
-      max-width: 1000px;
-      line-height: 0.95;
-      letter-spacing: -4px;
-    }
+  /* ============ Search ============ */
+  .search{
+    margin-top:20px; display:flex; align-items:center; gap:10px;
+    background:var(--surface); border:1px solid var(--line); border-radius:100px;
+    padding:13px 16px; color:var(--text-faint); cursor:pointer;
+  }
+  .search span{ font-size:13.5px; font-weight:500; }
 
-    .hero p {
-      margin-top: 30px;
-      max-width: 550px;
-      font-size: 20px;
-      line-height: 1.5;
-      color: #666;
-    }
+  /* ============ Category pills ============ */
+  .pills{ display:flex; gap:9px; margin-top:20px; overflow-x:auto; scrollbar-width:none; }
+  .pills::-webkit-scrollbar{ display:none; }
+  .pill{
+    flex:0 0 auto; font-size:12.5px; font-weight:600; padding:8px 15px; border-radius:100px;
+    background:var(--surface); border:1px solid var(--line); color:var(--text-soft); cursor:pointer;
+    transition:background .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .pill.active{ background:var(--amber); border-color:var(--amber); color:var(--amber-ink); }
 
-    .button {
-      display: inline-block;
-      margin-top: 35px;
-      padding: 16px 28px;
-      background: #171717;
-      color: white;
-      text-decoration: none;
-      border-radius: 100px;
-      font-weight: bold;
-    }
+  /* ============ Section ============ */
+  .section{ margin-top:30px; }
+  .section-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:13px; }
+  .section-title{ font-family:var(--font-display); font-size:17px; }
+  .section-sub{ font-size:11.5px; color:var(--text-faint); font-weight:600; }
 
-    footer {
-      text-align: center;
-      padding: 30px;
-      color: #888;
-      font-size: 14px;
-    }
-  </style>
+  /* ============ Place card (horizontal) ============ */
+  .hrow{ display:flex; gap:13px; overflow-x:auto; scrollbar-width:none; margin:0 -22px; padding:0 22px 4px; }
+  .hrow::-webkit-scrollbar{ display:none; }
+
+  .card{
+    flex:0 0 auto; width:186px; border-radius:var(--r-lg); background:var(--surface); border:1px solid var(--line);
+    overflow:hidden; cursor:pointer; box-shadow:var(--shadow-sm);
+    transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  }
+  .card:hover{ border-color:var(--line-strong); box-shadow:var(--shadow-md); transform:translateY(-2px); }
+  .card:active{ transform:scale(.97); }
+  .card .art{ height:104px; position:relative; overflow:hidden; }
+  .card .art .live{
+    position:absolute; top:10px; left:10px; display:flex; align-items:center; gap:5px;
+    background:rgba(20,17,13,0.55); backdrop-filter:blur(6px); padding:4px 9px 4px 7px; border-radius:100px;
+    font-size:10.5px; font-weight:700; color:#fff;
+  }
+  .card .body{ padding:12px 13px 14px; }
+  .card .name{ font-family:var(--font-display); font-size:15px; color:var(--text); line-height:1.25; }
+  .card .meta{ font-size:11.5px; color:var(--text-faint); font-weight:600; margin-top:5px; }
+  .card .preview{ font-size:11.5px; color:var(--text-soft); margin-top:8px; line-height:1.4; font-style:italic; }
+
+  .live-dot{ width:6px; height:6px; border-radius:50%; background:var(--rose); position:relative; flex:0 0 auto; }
+  .live-dot::after{ content:''; position:absolute; inset:-4px; border-radius:50%; border:1.5px solid var(--rose); opacity:.6; animation:pulse 1.8s ease-out infinite; }
+  @keyframes pulse{ 0%{transform:scale(.6); opacity:.6;} 100%{transform:scale(2.2); opacity:0;} }
+
+  /* art gradients — muted, place-flavoured */
+  .art-1{ background:linear-gradient(150deg,#3B2C1B,#7A4B23); }
+  .art-2{ background:linear-gradient(150deg,#2A2F33,#4C5A63); }
+  .art-3{ background:linear-gradient(150deg,#233324,#3E5C41); }
+  .art-4{ background:linear-gradient(150deg,#3A2226,#6B2F35); }
+  .art-5{ background:linear-gradient(150deg,#2E2A20,#5C5237); }
+  .art-6{ background:linear-gradient(150deg,#242A34,#3D4A5C); }
+  .art-grain{ position:absolute; inset:0; background-image:radial-gradient(rgba(255,255,255,.10) 1px, transparent 1px); background-size:9px 9px; opacity:.35; }
+  .art-glow{ position:absolute; width:120px; height:120px; border-radius:50%; background:radial-gradient(circle, rgba(255,255,255,.22), transparent 70%); }
+
+  /* ============ Vertical list card (Places screen) ============ */
+  .list-card{
+    display:flex; gap:13px; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg);
+    padding:12px; cursor:pointer; box-shadow:var(--shadow-sm); transition:border-color .15s ease, transform .15s ease;
+  }
+  .list-card + .list-card{ margin-top:12px; }
+  .list-card:hover{ border-color:var(--line-strong); }
+  .list-card:active{ transform:scale(.985); }
+  .list-thumb{ width:70px; height:70px; border-radius:15px; flex:0 0 auto; position:relative; overflow:hidden; }
+  .list-body{ flex:1; min-width:0; }
+  .list-top{ display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
+  .list-name{ font-family:var(--font-display); font-size:15.5px; }
+  .list-dist{ font-size:11px; color:var(--text-faint); font-weight:600; flex:0 0 auto; }
+  .list-meta{ font-size:11.5px; color:var(--text-faint); font-weight:600; margin-top:3px; }
+  .list-preview{ font-size:12px; color:var(--text-soft); margin-top:7px; line-height:1.4; }
+
+  /* ============ Filters row ============ */
+  .filters{ display:flex; gap:8px; overflow-x:auto; margin:18px -22px 20px; padding:0 22px 2px; scrollbar-width:none; }
+  .filters::-webkit-scrollbar{ display:none; }
+
+  /* ============ Bottom nav ============ */
+  .bottomnav{
+    position:relative; z-index:60; display:flex; justify-content:space-around; align-items:center;
+    padding: 10px 6px calc(10px + env(safe-area-inset-bottom));
+    background:rgba(28,23,18,0.86); backdrop-filter:blur(20px) saturate(1.3);
+    border-top:1px solid var(--line);
+  }
+  .nav-btn{
+    background:none; border:none; display:flex; flex-direction:column; align-items:center; gap:4px;
+    color:var(--text-faint); padding:6px 14px; border-radius:14px; cursor:pointer; position:relative;
+    transition:color .15s ease;
+  }
+  .nav-btn .label{ font-size:9.5px; font-weight:700; letter-spacing:.02em; }
+  .nav-btn.active{ color:var(--amber); }
+  .nav-btn:active svg{ transform:scale(.86); }
+  .nav-btn svg{ transition:transform .15s ease; }
+  .nav-dot{ position:absolute; top:2px; right:10px; width:7px; height:7px; border-radius:50%; background:var(--rose); border:1.5px solid var(--ink); }
+
+  /* ============ Map screen ============ */
+  .map-area{ position:relative; flex:1; overflow:hidden; }
+  .map-bg{
+    position:absolute; inset:0;
+    background:
+      radial-gradient(360px 280px at 24% 30%, rgba(231,166,74,0.10), transparent 70%),
+      radial-gradient(320px 260px at 76% 62%, rgba(226,115,92,0.09), transparent 70%),
+      var(--ink);
+  }
+  .map-river{ position:absolute; inset:0; opacity:.5; }
+  .map-hood{ position:absolute; font-family:var(--font-display); font-style:italic; color:var(--text); opacity:.08; font-size:14px; letter-spacing:.02em; }
+  .map-top{ position:absolute; top:52px; left:18px; right:18px; z-index:20; display:flex; gap:9px; }
+
+  .pin{ position:absolute; display:flex; flex-direction:column; align-items:center; cursor:pointer; }
+  .pin .head{
+    width:15px; height:15px; border-radius:50%; background:var(--amber); border:2.5px solid var(--ink);
+    box-shadow:0 3px 10px -2px rgba(0,0,0,.6); position:relative;
+  }
+  .pin .head::after{ content:''; position:absolute; inset:-7px; border-radius:50%; border:1.5px solid var(--amber); opacity:.35; animation:pulse 2.4s ease-out infinite; }
+  .pin .stem{ width:2px; height:12px; background:linear-gradient(var(--amber), transparent); }
+  .pin .tag{ margin-top:4px; font-size:10px; font-weight:700; color:var(--text-soft); background:var(--surface); border:1px solid var(--line); padding:3px 8px; border-radius:100px; white-space:nowrap; }
+
+  /* ============ Preview sheet ============ */
+  .backdrop{ position:absolute; inset:0; background:rgba(10,8,6,0.55); backdrop-filter:blur(2px); opacity:0; pointer-events:none; transition:opacity .25s ease; z-index:70; }
+  .backdrop.show{ opacity:1; pointer-events:auto; }
+  .sheet{
+    position:absolute; left:0; right:0; bottom:0; z-index:80;
+    background:var(--surface); border:1px solid var(--line-strong); border-bottom:none;
+    border-radius:26px 26px 0 0; box-shadow:var(--shadow-lg);
+    transform:translateY(100%); transition:transform .32s cubic-bezier(.2,.9,.25,1);
+    padding: 10px 20px calc(24px + env(safe-area-inset-bottom));
+  }
+  .sheet.show{ transform:translateY(0); }
+  .sheet-handle{ width:34px; height:4px; border-radius:100px; background:var(--line-strong); margin:0 auto 16px; }
+  .sheet-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+  .sheet-name{ font-family:var(--font-display); font-size:20px; }
+  .sheet-type{ font-size:12px; color:var(--text-faint); font-weight:600; margin-top:4px; }
+  .sheet-stats{ display:flex; gap:18px; margin-top:16px; }
+  .sheet-stat .v{ font-family:var(--font-display); font-size:16px; }
+  .sheet-stat .l{ font-size:10px; color:var(--text-faint); font-weight:700; text-transform:uppercase; letter-spacing:.03em; margin-top:2px; }
+  .enter-btn{
+    margin-top:20px; width:100%; padding:15px; border-radius:16px; border:none; background:var(--amber); color:var(--amber-ink);
+    font-weight:700; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;
+    transition:transform .15s ease, filter .15s ease;
+  }
+  .enter-btn:hover{ filter:brightness(1.06); }
+  .enter-btn:active{ transform:scale(.98); }
+
+  /* ============ Room (chat) overlay ============ */
+  .room{
+    position:absolute; inset:0; background:var(--ink); z-index:90; display:flex; flex-direction:column;
+    transform:translateX(100%); transition:transform .3s cubic-bezier(.2,.9,.25,1);
+  }
+  .room.show{ transform:translateX(0); }
+  .room-header{
+    display:flex; align-items:center; gap:12px; padding:52px 18px 15px; border-bottom:1px solid var(--line); background:var(--surface);
+  }
+  .room-back{ width:34px; height:34px; border-radius:50%; background:var(--surface-2); display:flex; align-items:center; justify-content:center; color:var(--text-soft); cursor:pointer; flex:0 0 auto; }
+  .room-title{ font-family:var(--font-display); font-size:16px; }
+  .room-sub{ font-size:11.5px; color:var(--text-faint); font-weight:600; margin-top:2px; display:flex; align-items:center; gap:6px; }
+
+  .chat-scroll{ flex:1; overflow-y:auto; padding:18px 16px 10px; display:flex; flex-direction:column; gap:12px; scrollbar-width:none; }
+  .chat-scroll::-webkit-scrollbar{ display:none; }
+  .msg{ display:flex; gap:9px; max-width:84%; }
+  .msg.me{ align-self:flex-end; flex-direction:row-reverse; }
+  .msg-av{
+    width:27px; height:27px; border-radius:50%; flex:0 0 auto; margin-top:3px;
+    display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:var(--amber-ink);
+  }
+  .msg-body .name{ font-size:10.5px; font-weight:700; color:var(--text-faint); margin-bottom:4px; }
+  .msg.me .msg-body .name{ display:none; }
+  .msg-bubble{
+    background:var(--surface); border:1px solid var(--line); padding:10px 14px; border-radius:16px 16px 16px 5px;
+    font-size:13.5px; line-height:1.45; color:var(--text);
+  }
+  .msg.me .msg-bubble{ background:var(--amber); color:var(--amber-ink); border-color:transparent; border-radius:16px 16px 5px 16px; font-weight:500; }
+  .msg-time{ font-size:9.5px; color:var(--text-faint); margin-top:4px; font-weight:600; }
+  .msg.me .msg-time{ text-align:right; }
+
+  .composer{
+    display:flex; align-items:center; gap:10px; padding: 12px 14px calc(16px + env(safe-area-inset-bottom));
+    border-top:1px solid var(--line); background:var(--surface);
+  }
+  .composer input{
+    flex:1; border:1px solid var(--line); background:var(--ink); border-radius:100px; padding:12px 16px;
+    font-size:13.5px; font-family:inherit; color:var(--text); outline:none;
+  }
+  .composer input::placeholder{ color:var(--text-faint); }
+  .composer input:focus{ border-color:var(--line-strong); }
+  .send-btn{
+    width:38px; height:38px; border-radius:50%; background:var(--amber); border:none; color:var(--amber-ink);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; flex:0 0 auto;
+    transition:transform .15s ease;
+  }
+  .send-btn:active{ transform:scale(.88); }
+
+  /* ============ Activity / Messages ============ */
+  .act-row{ display:flex; align-items:center; gap:12px; padding:13px 0; border-bottom:1px solid var(--line); cursor:pointer; }
+  .act-row:last-child{ border-bottom:none; }
+  .act-ic{ width:38px; height:38px; border-radius:12px; background:var(--surface); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; color:var(--amber); flex:0 0 auto; }
+  .act-title{ font-size:13.5px; font-weight:600; line-height:1.4; }
+  .act-time{ font-size:11px; color:var(--text-faint); font-weight:600; margin-top:3px; }
+
+  /* ============ Profile ============ */
+  .profile-top{ display:flex; align-items:center; gap:16px; }
+  .avatar-xl{
+    width:76px; height:76px; border-radius:24px; background:linear-gradient(150deg, var(--amber), var(--rose));
+    display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-size:28px; color:var(--amber-ink);
+    box-shadow:var(--shadow-md);
+  }
+  .profile-name{ font-family:var(--font-display); font-size:20px; }
+  .profile-city{ font-size:12.5px; color:var(--text-faint); font-weight:600; margin-top:4px; }
+
+  .stat-strip{ display:flex; margin-top:24px; background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:16px 6px; }
+  .stat-cell{ flex:1; text-align:center; border-right:1px solid var(--line); }
+  .stat-cell:last-child{ border-right:none; }
+  .stat-cell .v{ font-family:var(--font-display); font-size:18px; color:var(--amber); }
+  .stat-cell .l{ font-size:10.5px; color:var(--text-faint); font-weight:600; margin-top:4px; }
+
+  .settings-row{
+    display:flex; align-items:center; gap:12px; padding:15px 4px; border-bottom:1px solid var(--line); cursor:pointer; color:var(--text-soft);
+  }
+  .settings-row:last-child{ border-bottom:none; }
+  .settings-row span{ flex:1; font-size:13.5px; font-weight:600; color:var(--text); }
+  .settings-row svg{ color:var(--text-faint); }
+
+  .quote{
+    margin-top:26px; padding:18px 20px; border-radius:18px; background:var(--surface); border:1px solid var(--line);
+    font-family:var(--font-display); font-style:italic; font-size:14px; color:var(--text-soft); line-height:1.5;
+  }
+
+  .field-label{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-faint); margin:26px 0 12px; }
+</style>
 </head>
-
 <body>
 
-  <nav>
-    <div class="logo">R</div>
+<div class="stage">
+  <div class="device">
+    <div class="screen-frame">
+      <div class="notch"></div>
+      <div class="app">
 
-    <div class="nav-links">
-      <span>Places</span>
-      <span>Map</span>
+        <div class="screens" id="screens">
+
+          <!-- ============ HOME ============ -->
+          <section class="screen active" data-screen="home">
+            <div class="scroll"><div class="pad">
+
+              <div class="topbar">
+                <div class="wordmark">
+                  <div class="r">R</div>
+                  <div class="loc">Now in<br /><b>Le Marais, Paris</b></div>
+                </div>
+                <div class="icon-btn" onclick="showScreen('messages')" style="position:relative;">
+                  <svg class="ic" viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 4 1.5 5.5 1.5 5.5H4.5S6 13 6 9Z"/><path d="M9.5 17a2.5 2.5 0 0 0 5 0"/></svg>
+                </div>
+              </div>
+
+              <div class="hero-greet">Good evening</div>
+              <h1 class="hero-line">Places remember <em>more</em> than we think.</h1>
+
+              <div class="search" onclick="showScreen('places')">
+                <svg class="ic" viewBox="0 0 24 24" width="17" height="17"><circle cx="10.5" cy="10.5" r="6"/><path d="m20 20-4.5-4.5"/></svg>
+                <span>Search a place, a vibe, a memory…</span>
+              </div>
+
+              <div class="pills">
+                <div class="pill active" onclick="selectPill(this)">All</div>
+                <div class="pill" onclick="selectPill(this)">Café</div>
+                <div class="pill" onclick="selectPill(this)">Nightlife</div>
+                <div class="pill" onclick="selectPill(this)">Parks</div>
+                <div class="pill" onclick="selectPill(this)">Culture</div>
+              </div>
+
+              <div class="section">
+                <div class="section-head">
+                  <h2 class="section-title">Happening now</h2>
+                  <span class="section-sub" onclick="showScreen('map')" style="cursor:pointer;">View map</span>
+                </div>
+                <div class="hrow" id="homeHappening"></div>
+              </div>
+
+              <div class="section">
+                <div class="section-head"><h2 class="section-title">Quiet corners</h2></div>
+                <div class="hrow" id="homeQuiet"></div>
+              </div>
+
+            </div></div>
+          </section>
+
+          <!-- ============ MAP ============ -->
+          <section class="screen" data-screen="map">
+            <div class="map-area">
+              <div class="map-bg">
+                <svg class="map-river" viewBox="0 0 400 800" preserveAspectRatio="none">
+                  <path d="M -20 620 C 90 560, 60 460, 180 420 C 300 380, 260 260, 400 200" stroke="rgba(231,166,74,0.14)" stroke-width="26" fill="none" stroke-linecap="round"/>
+                </svg>
+                <div class="map-hood" style="top:18%; left:12%;">Le Marais</div>
+                <div class="map-hood" style="top:10%; left:58%;">Belleville</div>
+                <div class="map-hood" style="top:56%; left:10%;">Saint-Germain</div>
+                <div class="map-hood" style="top:66%; left:56%;">Canal Saint-Martin</div>
+              </div>
+
+              <div class="map-top">
+                <div class="search" style="flex:1; margin-top:0;" onclick="showScreen('places')">
+                  <svg class="ic" viewBox="0 0 24 24" width="17" height="17"><circle cx="10.5" cy="10.5" r="6"/><path d="m20 20-4.5-4.5"/></svg>
+                  <span>Search the map…</span>
+                </div>
+              </div>
+
+              <div id="mapPins"></div>
+            </div>
+          </section>
+
+          <!-- ============ PLACES ============ -->
+          <section class="screen" data-screen="places">
+            <div class="scroll"><div class="pad" style="padding-top:52px;">
+              <h2 class="section-title" style="font-size:20px;">Places nearby</h2>
+              <div class="filters" id="placeFilters"></div>
+              <div id="placesList"></div>
+            </div></div>
+          </section>
+
+          <!-- ============ MESSAGES / ACTIVITY ============ -->
+          <section class="screen" data-screen="messages">
+            <div class="scroll"><div class="pad" style="padding-top:52px;">
+              <h2 class="section-title" style="font-size:20px;">Activity</h2>
+
+              <div class="field-label" style="margin-top:22px;">Recently visited</div>
+              <div id="actRecent"></div>
+
+              <div class="field-label">Replies &amp; mentions</div>
+              <div id="actReplies"></div>
+
+              <div class="field-label">Saved places</div>
+              <div id="actSaved"></div>
+            </div></div>
+          </section>
+
+          <!-- ============ PROFILE ============ -->
+          <section class="screen" data-screen="profile">
+            <div class="scroll"><div class="pad" style="padding-top:52px;">
+              <div class="profile-top">
+                <div class="avatar-xl">J</div>
+                <div>
+                  <div class="profile-name">Jules Renard</div>
+                  <div class="profile-city">Paris, France</div>
+                </div>
+              </div>
+
+              <div class="stat-strip">
+                <div class="stat-cell"><div class="v">37</div><div class="l">Places visited</div></div>
+                <div class="stat-cell"><div class="v">14</div><div class="l">Rooms joined</div></div>
+                <div class="stat-cell"><div class="v">9</div><div class="l">Saved</div></div>
+              </div>
+
+              <div class="quote">"I keep coming back to the room of the café where I used to write every morning. It still remembers."</div>
+
+              <div class="field-label">Settings</div>
+              <div class="settings-row"><svg class="ic" viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="8.5" r="3.5"/><path d="M4.5 20c1.4-4 4.2-6 7.5-6s6.1 2 7.5 6"/></svg><span>Edit profile</span></div>
+              <div class="settings-row"><svg class="ic" viewBox="0 0 24 24" width="18" height="18"><path d="M6 9a6 6 0 0 1 12 0c0 4 1.5 5.5 1.5 5.5H4.5S6 13 6 9Z"/></svg><span>Notifications</span></div>
+              <div class="settings-row"><svg class="ic" viewBox="0 0 24 24" width="18" height="18"><path d="M6 3h12v18l-6-4-6 4Z"/></svg><span>Saved places</span></div>
+              <div class="settings-row"><svg class="ic" viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg><span>Privacy &amp; data</span></div>
+              <div class="settings-row"><svg class="ic" viewBox="0 0 24 24" width="18" height="18"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg><span>Sign out</span></div>
+            </div></div>
+          </section>
+
+        </div>
+
+        <!-- ============ BOTTOM NAV ============ -->
+        <div class="bottomnav">
+          <button class="nav-btn active" data-nav="home" onclick="showScreen('home')">
+            <svg class="ic" viewBox="0 0 24 24"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9h12v-9"/><path d="M10 19v-5h4v5"/></svg>
+            <span class="label">Home</span>
+          </button>
+          <button class="nav-btn" data-nav="map" onclick="showScreen('map')">
+            <svg class="ic" viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.4"/></svg>
+            <span class="label">Map</span>
+          </button>
+          <button class="nav-btn" data-nav="places" onclick="showScreen('places')">
+            <svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>
+            <span class="label">Places</span>
+          </button>
+          <button class="nav-btn" data-nav="messages" onclick="showScreen('messages')" style="position:relative;">
+            <span class="nav-dot"></span>
+            <svg class="ic" viewBox="0 0 24 24"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-4 3.5V17H6a2 2 0 0 1-2-2Z"/></svg>
+            <span class="label">Messages</span>
+          </button>
+          <button class="nav-btn" data-nav="profile" onclick="showScreen('profile')">
+            <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.5"/><path d="M4.5 20c1.4-4 4.2-6 7.5-6s6.1 2 7.5 6"/></svg>
+            <span class="label">Profile</span>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- ============ PREVIEW SHEET ============ -->
+      <div class="backdrop" id="backdrop" onclick="closeSheet()"></div>
+      <div class="sheet" id="sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-top">
+          <div>
+            <div class="sheet-name" id="sheetName">Café de Flore</div>
+            <div class="sheet-type" id="sheetType">Café · 0.4 km away</div>
+          </div>
+          <div class="icon-btn" onclick="closeSheet()"><svg class="ic" viewBox="0 0 24 24" width="15" height="15"><path d="M5 5l14 14M19 5 5 19"/></svg></div>
+        </div>
+        <div class="sheet-stats">
+          <div class="sheet-stat"><div class="v" id="sheetPeople">18</div><div class="l">Talking now</div></div>
+          <div class="sheet-stat"><div class="v" id="sheetVibe">Warm</div><div class="l">Vibe</div></div>
+          <div class="sheet-stat"><div class="v" id="sheetOpen">Open</div><div class="l">Status</div></div>
+        </div>
+        <button class="enter-btn" onclick="enterFromSheet()">
+          Enter room
+          <svg class="ic" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+
+      <!-- ============ ROOM (chat) ============ -->
+      <div class="room" id="room">
+        <div class="room-header">
+          <div class="room-back" onclick="closeRoom()">
+            <svg class="ic" viewBox="0 0 24 24" width="17" height="17"><path d="M14.5 5 8 12l6.5 7"/></svg>
+          </div>
+          <div style="flex:1;">
+            <div class="room-title" id="roomTitle">Café de Flore</div>
+            <div class="room-sub"><span class="live-dot"></span><span id="roomSub">18 people talking now</span></div>
+          </div>
+          <div class="icon-btn"><svg class="ic" viewBox="0 0 24 24" width="16" height="16"><path d="M6 3h12v18l-6-4-6 4Z"/></svg></div>
+        </div>
+        <div class="chat-scroll" id="chatScroll"></div>
+        <div class="composer">
+          <input id="chatInput" type="text" placeholder="Say something to this room…" onkeydown="if(event.key==='Enter') sendMessage()" />
+          <button class="send-btn" onclick="sendMessage()">
+            <svg class="ic" viewBox="0 0 24 24" width="16" height="16"><path d="M4 12 20 4 13 20l-2-6-7-2Z"/></svg>
+          </button>
+        </div>
+      </div>
+
     </div>
-  </nav>
+  </div>
+</div>
 
-  <main class="hero">
+<script>
+  // ---------------- Data ----------------
+  const avatarPalette = ['#E7A64A','#E2735C','#7A93A8','#8CA37A','#B98CC9','#C9A96E'];
+  function colorFor(name){
+    let h = 0; for (let i=0;i<name.length;i++) h = (h*31 + name.charCodeAt(i)) % avatarPalette.length;
+    return avatarPalette[h];
+  }
+  function initials(name){ return name.charAt(0).toUpperCase(); }
 
-    <h1>Places remember more than we think.</h1>
+  const places = [
+    { id:'flore', name:'Café de Flore', category:'Café', art:'art-1', hood:'Saint-Germain', dist:'0.4 km', people:18, vibe:'Warm', status:'Open',
+      preview:"“Same table, same window. Third week in a row.”",
+      messages:[
+        {who:'Inès', text:'Does anyone know the song that just played?'},
+        {who:'Marc', text:'Terrace is packed tonight, worth the wait.'},
+        {who:'Sofia', text:'I found a pair of sunglasses near the bar — tortoise shell.'},
+        {who:'Adam', text:'The waiter with the mustache is a legend, ask for table 12.'},
+        {who:'Nour', text:'I was here yesterday and the atmosphere was amazing.'},
+        {who:'Léo', text:'Anyone else writing here right now? Feels like a library tonight.'},
+        {who:'Camille', text:'The hot chocolate is worth every euro, trust me.'},
+        {who:'Yanis', text:'Someone left a book on table 4, "L’Étranger" — still there.'},
+      ] },
+    { id:'canal', name:'Canal Saint-Martin', category:'Outdoors', art:'art-2', hood:'10e', dist:'1.1 km', people:41, vibe:'Electric', status:'Busy',
+      preview:"“Someone brought a speaker, the whole bank is dancing.”",
+      messages:[
+        {who:'Théo', text:'Anyone staying for the next DJ? He’s setting up now.'},
+        {who:'Nina', text:'Picnic spot near the second lock is free if you hurry.'},
+        {who:'Karim', text:'Lost a black cap near the footbridge, has anyone seen it?'},
+        {who:'Maya', text:'The sunset over the water right now is unreal.'},
+        {who:'Hugo', text:'Someone’s playing guitar by the lock, come listen.'},
+        {who:'Zoé', text:'Bring a jacket, it gets cold by the water after 10.'},
+      ] },
+    { id:'marais', name:'Le Marais', category:'Culture', art:'art-3', hood:'3e/4e', dist:'0.7 km', people:26, vibe:'Curious', status:'Open',
+      preview:"“Small gallery on Rue des Rosiers just opened a new show.”",
+      messages:[
+        {who:'Élise', text:'The falafel line is long but moves fast, worth it.'},
+        {who:'Paul', text:'New exhibition at the little gallery near the fountain.'},
+        {who:'Rania', text:'Anyone know if the bookshop on the corner is open late?'},
+        {who:'Sami', text:'I met someone here yesterday, blue coat, we talked for an hour.'},
+        {who:'Alice', text:'The courtyard behind the old building is so quiet at night.'},
+      ] },
+    { id:'rex', name:'Rex Club', category:'Nightlife', art:'art-4', hood:'2e', dist:'2.3 km', people:96, vibe:'Intense', status:'Live',
+      preview:"“Line’s long but the set tonight is worth every minute.”",
+      messages:[
+        {who:'Karim', text:'Line is long but moving, worth the wait tonight.'},
+        {who:'Nadia', text:'This set is insane, been on the floor for two hours.'},
+        {who:'Victor', text:'Anyone else lose their friends near the second room?'},
+        {who:'Lina', text:'I found a set of keys with a red keychain near the bar.'},
+        {who:'Diego', text:'Sound system tonight is next level, respect to the DJ.'},
+        {who:'Anna', text:'Smoking area outside is calmer if you need a break.'},
+      ] },
+    { id:'luxembourg', name:'Jardin du Luxembourg', category:'Parks', art:'art-3', hood:'6e', dist:'1.8 km', people:9, vibe:'Calm', status:'Quiet',
+      preview:"“Reading by the fountain, first warm evening of the month.”",
+      messages:[
+        {who:'Chloé', text:'Reading by the fountain, first warm evening in weeks.'},
+        {who:'Baptiste', text:'The bees are back on the flower beds near the east gate.'},
+        {who:'Salomé', text:'Chess players are out again near the tennis courts.'},
+        {who:'Noé', text:'Gates close at 9:30, don’t get locked in like last week.'},
+      ] },
+    { id:'villette', name:'La Villette', category:'Culture', art:'art-5', hood:'19e', dist:'3.4 km', people:33, vibe:'Open', status:'Open',
+      preview:"“Outdoor screening starts at nightfall, bring a blanket.”",
+      messages:[
+        {who:'Emma', text:'Outdoor screening starts at nightfall, bring a blanket.'},
+        {who:'Yassine', text:'Foodtrucks near the canal side are open till late.'},
+        {who:'Julia', text:'Anyone up for the grass by the big red folly?'},
+        {who:'Malik', text:'Found a scarf near the science museum entrance.'},
+      ] },
+    { id:'belleville', name:'Parc de Belleville', category:'Parks', art:'art-6', hood:'20e', dist:'2.0 km', people:14, vibe:'Golden', status:'Open',
+      preview:"“Best view of the city right before the sun goes down.”",
+      messages:[
+        {who:'Farah', text:'Best view of the city right before the sun goes down.'},
+        {who:'Owen', text:'Someone’s playing vinyl on a portable player near the top steps.'},
+        {who:'Ines', text:'The rooftop bar across the street is worth it after this.'},
+      ] },
+    { id:'pointeph', name:'Point Éphémère', category:'Nightlife', art:'art-2', hood:'10e', dist:'1.4 km', people:52, vibe:'Loud', status:'Live',
+      preview:"“Live band just started, canal-side terrace is full.”",
+      messages:[
+        {who:'Bilal', text:'Live band just started, terrace is completely full.'},
+        {who:'Sarah', text:'Anyone know the name of the bassist? He’s incredible.'},
+        {who:'Tom', text:'Found a lighter with initials "M.R." near the bar.'},
+      ] },
+  ];
 
-    <p>
-      Every place has a story.
-      Discover what's happening around you,
-      join the conversation and leave something behind.
-    </p>
+  let currentPlaceId = null;
 
-    <a class="button" href="#">Explore places</a>
+  // ---------------- Illustration helpers ----------------
+  function artHtml(){
+    return '<div class="art-grain"></div><div class="art-glow" style="top:-30px; right:-20px;"></div>';
+  }
 
-  </main>
+  // ---------------- Render: Home ----------------
+  function renderHome(){
+    const busy = [...places].sort((a,b)=> b.people - a.people).slice(0,5);
+    const quiet = [...places].sort((a,b)=> a.people - b.people).slice(0,4);
+    document.getElementById('homeHappening').innerHTML = busy.map(cardHtml).join('');
+    document.getElementById('homeQuiet').innerHTML = quiet.map(cardHtml).join('');
+  }
+  function cardHtml(p){
+    return `
+      <div class="card" onclick="openSheet('${p.id}')">
+        <div class="art ${p.art}">${artHtml()}
+          <div class="live"><span class="live-dot"></span>${p.people} here</div>
+        </div>
+        <div class="body">
+          <div class="name">${p.name}</div>
+          <div class="meta">${p.category} · ${p.dist}</div>
+          <div class="preview">${p.preview}</div>
+        </div>
+      </div>`;
+  }
 
-  <footer>
-    R — Where places remember people.
-  </footer>
+  // ---------------- Render: Places list ----------------
+  const filterDefs = ['Nearby','Active now','Nightlife','Food','Culture','Outdoors'];
+  let activeFilter = 'Nearby';
+  function renderFilters(){
+    document.getElementById('placeFilters').innerHTML = filterDefs.map(f =>
+      `<div class="pill ${f===activeFilter?'active':''}" onclick="setFilter('${f}', this)">${f}</div>`
+    ).join('');
+  }
+  function setFilter(f, el){
+    activeFilter = f;
+    document.querySelectorAll('#placeFilters .pill').forEach(p=>p.classList.remove('active'));
+    el.classList.add('active');
+    renderPlacesList();
+  }
+  function renderPlacesList(){
+    let list = [...places];
+    if(activeFilter==='Active now') list = list.filter(p=>p.people>30);
+    else if(activeFilter==='Nightlife') list = list.filter(p=>p.category==='Nightlife');
+    else if(activeFilter==='Food') list = list.filter(p=>p.category==='Café');
+    else if(activeFilter==='Culture') list = list.filter(p=>p.category==='Culture');
+    else if(activeFilter==='Outdoors') list = list.filter(p=>p.category==='Parks'||p.category==='Outdoors');
+    document.getElementById('placesList').innerHTML = list.map(p => `
+      <div class="list-card" onclick="openSheet('${p.id}')">
+        <div class="list-thumb ${p.art}">${artHtml()}</div>
+        <div class="list-body">
+          <div class="list-top"><div class="list-name">${p.name}</div><div class="list-dist">${p.dist}</div></div>
+          <div class="list-meta"><span class="live-dot" style="display:inline-block; vertical-align:middle; margin-right:5px;"></span>${p.people} talking now · ${p.category}</div>
+          <div class="list-preview">${p.preview}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  // ---------------- Render: Map pins ----------------
+  const pinPos = {
+    flore:{top:'58%', left:'16%'}, canal:{top:'64%', left:'58%'}, marais:{top:'26%', left:'26%'},
+    rex:{top:'20%', left:'60%'}, luxembourg:{top:'70%', left:'22%'}, villette:{top:'12%', left:'70%'},
+    belleville:{top:'16%', left:'44%'}, pointeph:{top:'46%', left:'70%'},
+  };
+  function renderMap(){
+    document.getElementById('mapPins').innerHTML = places.map(p => `
+      <div class="pin" style="top:${pinPos[p.id].top}; left:${pinPos[p.id].left};" onclick="openSheet('${p.id}')">
+        <div class="head"></div><div class="stem"></div>
+        <div class="tag">${p.name}</div>
+      </div>`).join('');
+  }
+
+  // ---------------- Render: Activity ----------------
+  function renderActivity(){
+    document.getElementById('actRecent').innerHTML = places.slice(0,3).map(p => `
+      <div class="act-row" onclick="openSheet('${p.id}')">
+        <div class="act-ic">${iconMap()}</div>
+        <div style="flex:1;">
+          <div class="act-title">${p.name}</div>
+          <div class="act-time">Visited earlier today</div>
+        </div>
+      </div>`).join('');
+    document.getElementById('actReplies').innerHTML = `
+      <div class="act-row" onclick="openSheet('flore')">
+        <div class="act-ic">${iconMsg()}</div>
+        <div style="flex:1;"><div class="act-title"><b>Inès</b> replied to your message in <b>Café de Flore</b></div><div class="act-time">12 min ago</div></div>
+      </div>
+      <div class="act-row" onclick="openSheet('canal')">
+        <div class="act-ic">${iconMsg()}</div>
+        <div style="flex:1;"><div class="act-title">You were mentioned in <b>Canal Saint-Martin</b></div><div class="act-time">1 h ago</div></div>
+      </div>`;
+    document.getElementById('actSaved').innerHTML = places.filter(p=>['luxembourg','belleville'].includes(p.id)).map(p => `
+      <div class="act-row" onclick="openSheet('${p.id}')">
+        <div class="act-ic">${iconBookmark()}</div>
+        <div style="flex:1;"><div class="act-title">${p.name}</div><div class="act-time">Saved for later</div></div>
+      </div>`).join('');
+  }
+  function iconMap(){ return '<svg class="ic" viewBox="0 0 24 24" width="17" height="17"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.4"/></svg>'; }
+  function iconMsg(){ return '<svg class="ic" viewBox="0 0 24 24" width="17" height="17"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-4 3.5V17H6a2 2 0 0 1-2-2Z"/></svg>'; }
+  function iconBookmark(){ return '<svg class="ic" viewBox="0 0 24 24" width="17" height="17"><path d="M6 3h12v18l-6-4-6 4Z"/></svg>'; }
+
+  // ---------------- Screen routing ----------------
+  function showScreen(name){
+    document.querySelectorAll('.screen').forEach(s=> s.classList.toggle('active', s.dataset.screen===name));
+    document.querySelectorAll('.nav-btn').forEach(b=> b.classList.toggle('active', b.dataset.nav===name));
+  }
+  function selectPill(el){
+    el.parentElement.querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  // ---------------- Preview sheet ----------------
+  function openSheet(id){
+    currentPlaceId = id;
+    const p = places.find(x=>x.id===id);
+    document.getElementById('sheetName').textContent = p.name;
+    document.getElementById('sheetType').textContent = p.category + ' · ' + p.dist + ' away';
+    document.getElementById('sheetPeople').textContent = p.people;
+    document.getElementById('sheetVibe').textContent = p.vibe;
+    document.getElementById('sheetOpen').textContent = p.status;
+    document.getElementById('backdrop').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  }
+  function closeSheet(){
+    document.getElementById('backdrop').classList.remove('show');
+    document.getElementById('sheet').classList.remove('show');
+  }
+  function enterFromSheet(){
+    const id = currentPlaceId;
+    closeSheet();
+    openRoom(id);
+  }
+
+  // ---------------- Room / chat ----------------
+  function openRoom(id){
+    currentPlaceId = id;
+    const p = places.find(x=>x.id===id);
+    document.getElementById('roomTitle').textContent = p.name;
+    document.getElementById('roomSub').textContent = p.people + ' people talking now';
+    const scroll = document.getElementById('chatScroll');
+    scroll.innerHTML = '';
+    p.messages.forEach(m => appendMessage(m.who, m.text, false));
+    document.getElementById('room').classList.add('show');
+    scroll.scrollTop = scroll.scrollHeight;
+  }
+  function closeRoom(){ document.getElementById('room').classList.remove('show'); }
+
+  function appendMessage(who, text, me){
+    const scroll = document.getElementById('chatScroll');
+    const row = document.createElement('div');
+    row.className = 'msg' + (me ? ' me' : '');
+    const time = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    row.innerHTML = `
+      <div class="msg-av" style="background:${me ? 'var(--amber)' : colorFor(who)}">${me ? 'Me' : initials(who)}</div>
+      <div class="msg-body">
+        <div class="name">${who}</div>
+        <div class="msg-bubble">${text}</div>
+        <div class="msg-time">${time}</div>
+      </div>`;
+    scroll.appendChild(row);
+    scroll.scrollTop = scroll.scrollHeight;
+  }
+
+  const cannedReplies = [
+    "Ha, same energy here.", "Careful, it gets busier after 11.", "Wish I was there right now.",
+    "Ask the bartender, he knows everything.", "It was even better an hour ago."
+  ];
+  function sendMessage(){
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if(!text) return;
+    appendMessage('Me', text, true);
+    input.value = '';
+    const p = places.find(x=>x.id===currentPlaceId);
+    const names = p.messages.map(m=>m.who);
+    setTimeout(()=>{
+      const who = names[Math.floor(Math.random()*names.length)] || 'Someone here';
+      const reply = cannedReplies[Math.floor(Math.random()*cannedReplies.length)];
+      appendMessage(who, reply, false);
+    }, 1100 + Math.random()*900);
+  }
+
+  // ---------------- Init ----------------
+  renderHome();
+  renderFilters();
+  renderPlacesList();
+  renderMap();
+  renderActivity();
+</script>
 
 </body>
 </html>
