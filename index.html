@@ -3,19 +3,113 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>R — Places remember</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f3ee;
+      color: #171717;
+    }
+
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 30px 6%;
+    }
+
+    .logo {
+      font-size: 42px;
+      font-weight: 800;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 30px;
+      font-size: 15px;
+    }
+
+    .hero {
+      min-height: 75vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 40px 20px;
+    }
+
+    .hero h1 {
+      font-size: clamp(50px, 8vw, 100px);
+      max-width: 1000px;
+      line-height: 0.95;
+      letter-spacing: -4px;
+    }
+
+    .hero p {
+      margin-top: 30px;
+      max-width: 550px;
+      font-size: 20px;
+      line-height: 1.5;
+      color: #666;
+    }
+
+    .button {
+      display: inline-block;
+      margin-top: 35px;
+      padding: 16px 28px;
+      background: #171717;
+      color: white;
+      text-decoration: none;
+      border-radius: 100px;
+      font-weight: bold;
+    }
+
+    footer {
+      text-align: center;
+      padding: 30px;
+      color: #888;
+      font-size: 14px;
+    }
+  </style>
 </head>
 
 <body>
 
-  <h1>R</h1>
+  <nav>
+    <div class="logo">R</div>
 
-  <h2>Places remember more than we think.</h2>
+    <div class="nav-links">
+      <span>Places</span>
+      <span>Map</span>
+    </div>
+  </nav>
 
-  <p>
-    A location-based social network where every place becomes
-    a space to connect, share and interact.
-  </p>
+  <main class="hero">
+
+    <h1>Places remember more than we think.</h1>
+
+    <p>
+      Every place has a story.
+      Discover what's happening around you,
+      join the conversation and leave something behind.
+    </p>
+
+    <a class="button" href="#">Explore places</a>
+
+  </main>
+
+  <footer>
+    R — Where places remember people.
+  </footer>
 
 </body>
 </html>
