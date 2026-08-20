@@ -562,7 +562,25 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
+  // ---------------- Supabase ----------------
+  const sbClient = supabase.createClient(
+    'https://sfvrnllaikhjoqvdgtld.supabase.co',
+    'sb_publishable_4Kinl85GwsagopXElLlDKg_E0pq10w9'
+  );
+  // Local place id -> Supabase places.id, only for rooms already in the DB.
+  const supabasePlaceIds = { rex:1, belleville:2, pointeph:3, luxembourg:4, villette:5 };
+  function getUsername(){
+    let u = localStorage.getItem('r_username');
+    if(!u){
+      u = 'Guest' + Math.floor(1000 + Math.random()*9000);
+      localStorage.setItem('r_username', u);
+    }
+    return u;
+  }
+  let currentChannel = null;
+
   // ---------------- Data ----------------
   const avatarPalette = ['#E7A64A','#E2735C','#7A93A8','#8CA37A','#B98CC9','#C9A96E'];
   function colorFor(name){
@@ -781,24 +799,57 @@
   }
 
   // ---------------- Room / chat ----------------
-  function openRoom(id){
+  async function openRoom(id){
     currentPlaceId = id;
     const p = places.find(x=>x.id===id);
     document.getElementById('roomTitle').textContent = p.name;
     document.getElementById('roomSub').textContent = p.people + ' people talking now';
     const scroll = document.getElementById('chatScroll');
     scroll.innerHTML = '';
-    p.messages.forEach(m => appendMessage(m.who, m.text, false));
     document.getElementById('room').classList.add('show');
+
+    const dbId = supabasePlaceIds[id];
+    if(dbId){
+      await loadMessages(dbId);
+      subscribeToRoom(dbId);
+    } else {
+      p.messages.forEach(m => appendMessage(m.who, m.text, false));
+    }
     scroll.scrollTop = scroll.scrollHeight;
   }
-  function closeRoom(){ document.getElementById('room').classList.remove('show'); }
+  function closeRoom(){
+    document.getElementById('room').classList.remove('show');
+    if(currentChannel){ sbClient.removeChannel(currentChannel); currentChannel = null; }
+  }
 
-  function appendMessage(who, text, me){
+  async function loadMessages(dbId){
+    const { data, error } = await sbClient
+      .from('messages')
+      .select('username, content, created_at')
+      .eq('place_id', dbId)
+      .order('created_at', { ascending: true });
+    if(error){ console.error('loadMessages error', error); return; }
+    data.forEach(m => appendMessage(m.username, m.content, m.username === getUsername(), m.created_at));
+  }
+
+  function subscribeToRoom(dbId){
+    if(currentChannel){ sbClient.removeChannel(currentChannel); currentChannel = null; }
+    currentChannel = sbClient
+      .channel('room-' + dbId)
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `place_id=eq.${dbId}` },
+        payload => {
+          const m = payload.new;
+          appendMessage(m.username, m.content, m.username === getUsername(), m.created_at);
+        })
+      .subscribe();
+  }
+
+  function appendMessage(who, text, me, at){
     const scroll = document.getElementById('chatScroll');
     const row = document.createElement('div');
     row.className = 'msg' + (me ? ' me' : '');
-    const time = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const time = (at ? new Date(at) : new Date()).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
     row.innerHTML = `
       <div class="msg-av" style="background:${me ? 'var(--amber)' : colorFor(who)}">${me ? 'Me' : initials(who)}</div>
       <div class="msg-body">
@@ -818,15 +869,23 @@
     const input = document.getElementById('chatInput');
     const text = input.value.trim();
     if(!text) return;
-    appendMessage('Me', text, true);
     input.value = '';
-    const p = places.find(x=>x.id===currentPlaceId);
-    const names = p.messages.map(m=>m.who);
-    setTimeout(()=>{
-      const who = names[Math.floor(Math.random()*names.length)] || 'Someone here';
-      const reply = cannedReplies[Math.floor(Math.random()*cannedReplies.length)];
-      appendMessage(who, reply, false);
-    }, 1100 + Math.random()*900);
+
+    const dbId = supabasePlaceIds[currentPlaceId];
+    if(dbId){
+      sbClient.from('messages')
+        .insert({ place_id: dbId, username: getUsername(), content: text })
+        .then(({ error }) => { if(error) console.error('sendMessage error', error); });
+    } else {
+      appendMessage('Me', text, true);
+      const p = places.find(x=>x.id===currentPlaceId);
+      const names = p.messages.map(m=>m.who);
+      setTimeout(()=>{
+        const who = names[Math.floor(Math.random()*names.length)] || 'Someone here';
+        const reply = cannedReplies[Math.floor(Math.random()*cannedReplies.length)];
+        appendMessage(who, reply, false);
+      }, 1100 + Math.random()*900);
+    }
   }
 
   // ---------------- Init ----------------
